@@ -101,7 +101,10 @@ async def get_douyin_web_stream_data(url: str, proxy_addr: OptionalStr = None, c
                 raise Exception("it triggered risk control")
             json_data = json.loads(json_str)['data']
             if not json_data['data']:
-                raise Exception(f"{url} VR live is not supported")
+                room_id = json_data.get('room_id') or (web_rid if web_rid.isdigit() else None)
+                if not room_id:
+                    raise Exception(f"{url} room_id unavailable for reflow fallback")
+                return await get_douyin_app_stream_data(url, proxy_addr, cookies, room_id)
             room_data = json_data['data'][0]
             room_data['anchor_name'] = json_data['user']['nickname']
         except Exception as e:
@@ -142,7 +145,7 @@ async def get_douyin_web_stream_data(url: str, proxy_addr: OptionalStr = None, c
 
 
 @trace_error_decorator
-async def get_douyin_app_stream_data(url: str, proxy_addr: OptionalStr = None, cookies: OptionalStr = None) -> dict:
+async def get_douyin_app_stream_data(url: str, proxy_addr: OptionalStr = None, cookies: OptionalStr = None, room_id: OptionalStr = None) -> dict:
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                       'Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
@@ -181,7 +184,9 @@ async def get_douyin_app_stream_data(url: str, proxy_addr: OptionalStr = None, c
 
     try:
         web_rid = url.split('?')[0].split('live.douyin.com/')
-        if len(web_rid) > 1:
+        if room_id:
+            room_data = await get_app_data(room_id, "")
+        elif len(web_rid) > 1:
             return await get_douyin_web_stream_data(url, proxy_addr, cookies)
         else:
             try:
